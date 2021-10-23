@@ -1,0 +1,110 @@
+---
+title: "Data Challenge 3"
+author: "Xueqi Huang"
+date: "October 23, 2021"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+---
+Github: https://github.com/vickynugget/DSI_DataChallenge3.git
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r}
+# load library
+library(readxl)
+library(readr)
+library(tidyverse)
+library(janitor)
+library(lubridate) 
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(Hmisc)
+library(snakecase)
+library(stringr)
+```
+
+```{r}
+# read in the data 
+coffee_ratings <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-07-07/coffee_ratings.csv')
+```
+
+## Problem 1
+```{r}
+# A function that returns the mean and standard deviation of a vector. 
+mean_and_sd <- function(x){ # the argument of the function is a vector x
+  mu <- mean(x) # get the mean of x
+  sd <- sd(x) # get the sd of x
+  # round the answers to 3 decimal places and concatenate the outputs
+  paste('mean: ', format(round(mu, 2), nsmall = 2), ' ',
+        'sd: ', format(round(sd, 2), nsmall = 2), 
+        sep = "") 
+}
+
+
+# A function that returns the mean and standard deviation of the aroma through moisture columns over a specific grouping as a table. 
+table_by_group <- function(df, x){
+  table <- df %>% 
+    rename(group = all_of(x)) %>% # read in the column name
+    group_by(group) %>% # group by the column
+    summarise(across(aroma:moisture, mean_and_sd)) # apply mean_and_sd to aroma through moisture
+  table = table[table$group != 'Missing',] # remove missing data
+  colnames(table) <- to_any_case(colnames(table), 'title') # rename the group column 
+  colnames(table)[1] <- to_any_case(x, 'title')
+  return(table)
+}
+
+# table_by_group(coffee_ratings_cleaned, "binned_altitude_mean_meters")
+
+```
+
+```{r}  
+# Clean the coffee ratings data frame
+coffee_ratings_cleaned <- coffee_ratings %>%
+  mutate(across(species:processing_method, .fns = ~replace_na(.x, "Missing"))) %>% # put a ‘Missing’ for NAs for missing values
+  mutate(altitude_mean_meters = ifelse(altitude_mean_meters > 10000, 
+                                       NA, 
+                                       altitude_mean_meters)) %>% # remove impossible values from mean altitude meters
+  mutate(binned_altitude_mean_meters = cut2(altitude_mean_meters,
+                                            c(0, 1000, 2000, 3000, 4000, 5000))) %>% # binning the mean altitude meters
+  mutate(binned_altitude_mean_meters = fct_explicit_na(binned_altitude_mean_meters, na_level = 'Missing')) %>% # set NAs into Missing
+  mutate(country_of_origin = ifelse(country_of_origin == "Cote d?Ivoire", "Cote d'Ivoire", country_of_origin)) # format the name Cote d'Ivoire
+
+
+# Using map to calculate tables for the three groups 
+groups <- c('species', 'country_of_origin', 'binned_altitude_mean_meters')
+output <- map(groups, ~table_by_group(coffee_ratings_cleaned, .x))
+knitr::kable(output, 'simple')
+```
+
+## Problem 2
+```{r}
+# A function that plots two variables from a data frame and colors by group
+scatter_plot <- function(df, group, varx, vary){
+  
+  df <- df %>%
+    # select variables from input character
+    rename(group = all_of(group)) %>%
+    rename(varx = all_of(varx)) %>%
+    rename(vary = all_of(vary)) %>% 
+    # remove zero values from x and y variables
+    mutate(varx = ifelse(varx == 0, NA, varx)) %>% 
+    mutate(vary = ifelse(vary == 0, NA, vary))
+  
+  df = df[df$group != 'Missing',] # remove missing data
+  
+  # make a scatter plot
+  ggplot(data = df, aes(x = varx, y = vary, color = group)) + # initialize ggplot objects
+    geom_jitter(alpha = 0.6) + # set alpha
+    labs(x = varx, # change x-axis label
+         y = vary, # change y-axis label
+         title = paste(str_to_title(varx), 'versus', str_to_title(vary), 'by', to_any_case(group, 'title')), # format the title
+         color = to_any_case(group, 'title')) # format the legend title
+    
+}
+```
