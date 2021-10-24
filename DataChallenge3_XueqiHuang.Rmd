@@ -54,12 +54,11 @@ table_by_group <- function(df, x){
     group_by(group) %>% # group by the column
     summarise(across(aroma:moisture, mean_and_sd)) # apply mean_and_sd to aroma through moisture
   table = table[table$group != 'Missing',] # remove missing data
-  colnames(table) <- to_any_case(colnames(table), 'title') # rename the group column 
-  colnames(table)[1] <- to_any_case(x, 'title')
-  return(table)
+  colnames(table) <- to_any_case(colnames(table), 'title') # format column names
+  colnames(table)[1] <- to_any_case(x, 'title') # rename the group column 
+  return(knitr::kable(table, 'simple')) # knit into table
 }
 
-# table_by_group(coffee_ratings_cleaned, "binned_altitude_mean_meters")
 
 ```
 
@@ -77,9 +76,11 @@ coffee_ratings_cleaned <- coffee_ratings %>%
 
 
 # Using map to calculate tables for the three groups 
-groups <- c('species', 'country_of_origin', 'binned_altitude_mean_meters')
-output <- map(groups, ~table_by_group(coffee_ratings_cleaned, .x))
-knitr::kable(output, 'simple')
+groups <- list('species', 'country_of_origin', 'binned_altitude_mean_meters')
+result <- map(groups, ~table_by_group(coffee_ratings_cleaned, .x))
+result[[1]]
+result[[2]]
+result[[3]]
 ```
 
 ## Problem 2
@@ -107,4 +108,11 @@ scatter_plot <- function(df, group, varx, vary){
          color = to_any_case(group, 'title')) # format the legend title
     
 }
+
+# format inputs
+varx <- list('aroma','balance')
+vary <- list('flavor','body')
+grp <- list('species', 'binned_altitude_mean_meters') 
+# use pmap to procude two plots
+pmap(list(grp, varx, vary), scatter_plot, df = coffee_ratings_cleaned)
 ```
